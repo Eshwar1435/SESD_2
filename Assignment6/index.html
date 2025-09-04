@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ride-Hailing App - Singleton Pattern Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .map-placeholder {
+            background:
+                linear-gradient(to right, rgba(224, 231, 255, 0.5) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(224, 231, 255, 0.5) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .btn {
+            @apply w-full font-bold py-3 px-4 rounded-lg transition-all duration-300 shadow-md focus:outline-none focus:ring-4;
+        }
+        .btn-primary {
+            @apply bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700 focus:ring-purple-300;
+        }
+        .btn-success {
+            @apply bg-gradient-to-r from-lime-500 to-green-500 text-white hover:from-lime-600 hover:to-green-600 focus:ring-green-300;
+        }
+        .btn-danger {
+            @apply bg-gradient-to-r from-pink-600 to-red-600 text-white hover:from-pink-700 hover:to-red-700 focus:ring-red-300 disabled:bg-none disabled:bg-gray-300 disabled:cursor-not-allowed;
+        }
+        .btn-secondary {
+             @apply bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 focus:ring-cyan-300;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 space-y-6">
+        
+        <!-- Header -->
+        <div class="text-center">
+            <h1 class="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 pb-2">RideSwift</h1>
+            <p class="text-gray-500">Enhanced Singleton Demo</p>
+        </div>
+
+        <!-- Map Placeholder -->
+        <div id="map" class="map-placeholder w-full h-48 bg-indigo-50 rounded-lg flex items-center justify-center text-center p-4">
+            <p id="map-text" class="text-indigo-500 font-medium">Map Area</p>
+        </div>
+
+        <!-- Status Display -->
+        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-500">Trip Status:</span>
+                <span id="trip-status" class="px-3 py-1 text-sm font-semibold text-white bg-gray-400 rounded-full">IDLE</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-500">Trip ID:</span>
+                <span id="trip-id" class="font-mono text-xs text-gray-600">N/A</span>
+            </div>
+             <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-500">Manager Instance ID:</span>
+                <span id="instance-id" class="font-mono text-xs text-indigo-600">N/A</span>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="button-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button id="request-ride-btn" class="btn btn-primary">Request Ride</button>
+            <button id="start-ride-btn" class="btn btn-success hidden">Start Ride</button>
+            <button id="end-ride-btn" class="btn btn-secondary hidden col-span-2">End Ride</button>
+            <button id="cancel-ride-btn" class="btn btn-danger hidden">Cancel Ride</button>
+        </div>
+
+        <!-- Log Area -->
+        <div>
+            <h3 class="text-lg font-semibold text-gray-700 mb-2">System Log</h3>
+            <div id="log-area" class="h-32 bg-gray-900 text-white font-mono text-xs p-3 rounded-lg overflow-y-auto">
+                <!-- Log messages will appear here -->
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * RideManager Singleton (IIFE)
+         */
+        const RideManager = (function () {
+            let instance; 
+
+            function createInstance() {
+                const manager = {
+                    tripId: null,
+                    status: 'idle', // idle, searching, in_progress, ride_started
+                    instanceId: 'mgr-' + Math.random().toString(36).substring(2, 9),
+
+                    requestTrip: function () {
+                        if (this.status !== 'idle') return { success: false, message: 'A trip is already active.' };
+                        this.status = 'searching';
+                        this.tripId = 'trip-' + Math.random().toString(36).substring(2, 9);
+                        return { success: true, message: `Searching for drivers for trip ${this.tripId}` };
+                    },
+                    
+                    assignDriver: function() {
+                        if (this.status !== 'searching') return { success: false, message: 'No trip is currently searching.' };
+                        this.status = 'in_progress';
+                        return { success: true, message: `Driver found! Ready to start trip ${this.tripId}.` };
+                    },
+                    
+                    startTrip: function() {
+                        if (this.status !== 'in_progress') return { success: false, message: 'Driver has not arrived yet.' };
+                        this.status = 'ride_started';
+                        return { success: true, message: `Trip ${this.tripId} has started. Enjoy the ride!` };
+                    },
+                    
+                    endTrip: function() {
+                        if (this.status !== 'ride_started') return { success: false, message: 'No trip is currently started.' };
+                        const finishedTripId = this.tripId;
+                        this.status = 'idle';
+                        this.tripId = null;
+                        return { success: true, message: `Trip ${finishedTripId} has ended. Thank you!` };
+                    },
+
+                    cancelTrip: function () {
+                        if (this.status === 'idle' || this.status === 'ride_started') return { success: false, message: 'No active trip to cancel.' };
+                        const cancelledTripId = this.tripId;
+                        this.status = 'idle';
+                        this.tripId = null;
+                        return { success: true, message: `Trip ${cancelledTripId} was cancelled.` };
+                    },
+
+                    getState: function () {
+                        return {
+                            tripId: this.tripId,
+                            status: this.status,
+                            instanceId: this.instanceId,
+                        };
+                    }
+                };
+                return manager;
+            }
+
+            return {
+                getInstance: function () {
+                    if (!instance) {
+                        logMessage("Creating NEW RideManager instance...", 'text-yellow-400');
+                        instance = createInstance();
+                    } else {
+                        logMessage("Returning EXISTING RideManager instance.", 'text-green-400');
+                    }
+                    return instance;
+                }
+            };
+        })();
+
+        // --- DOM Elements ---
+        const requestRideBtn = document.getElementById('request-ride-btn');
+        const cancelRideBtn = document.getElementById('cancel-ride-btn');
+        const startRideBtn = document.getElementById('start-ride-btn');
+        const endRideBtn = document.getElementById('end-ride-btn');
+        const tripStatusEl = document.getElementById('trip-status');
+        const tripIdEl = document.getElementById('trip-id');
+        const instanceIdEl = document.getElementById('instance-id');
+        const logArea = document.getElementById('log-area');
+        const mapText = document.getElementById('map-text');
+        
+        const allButtons = [requestRideBtn, cancelRideBtn, startRideBtn, endRideBtn];
+
+        // --- UI Update Logic ---
+        function updateUI() {
+            const rideManager = RideManager.getInstance();
+            const state = rideManager.getState();
+
+            // Update Status Badge
+            tripStatusEl.textContent = state.status.replace('_', ' ').toUpperCase();
+            const statusColors = {
+                idle: 'bg-gray-400',
+                searching: 'bg-blue-500',
+                in_progress: 'bg-yellow-500',
+                ride_started: 'bg-green-500'
+            };
+            tripStatusEl.className = `px-3 py-1 text-sm font-semibold text-white ${statusColors[state.status]} rounded-full`;
+
+            // Update IDs and Map Text
+            tripIdEl.textContent = state.tripId || 'N/A';
+            instanceIdEl.textContent = state.instanceId;
+            const mapMessages = {
+                idle: 'Ready to book a ride!',
+                searching: 'Finding a driver near you...',
+                in_progress: 'Your driver has arrived!',
+                ride_started: 'You are on your way to the destination!'
+            };
+            mapText.textContent = mapMessages[state.status];
+
+            // Hide all buttons initially
+            allButtons.forEach(btn => btn.classList.add('hidden'));
+
+            // Show buttons based on state
+            switch(state.status) {
+                case 'idle':
+                    requestRideBtn.classList.remove('hidden');
+                    break;
+                case 'searching':
+                    cancelRideBtn.classList.remove('hidden');
+                    break;
+                case 'in_progress':
+                    startRideBtn.classList.remove('hidden');
+                    cancelRideBtn.classList.remove('hidden');
+                    break;
+                case 'ride_started':
+                    endRideBtn.classList.remove('hidden');
+                    break;
+            }
+        }
+
+        function logMessage(message, colorClass = 'text-gray-300') {
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `<p><span class="text-cyan-400">${timestamp}</span>: <span class="${colorClass}">${message}</span></p>`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // --- Event Listeners ---
+        requestRideBtn.addEventListener('click', () => {
+            logMessage('Attempting to request a ride...');
+            const rideManager = RideManager.getInstance();
+            const result = rideManager.requestTrip();
+
+            logMessage(result.message);
+            updateUI();
+
+            if (result.success) {
+                // Simulate finding a driver after a few seconds
+                setTimeout(() => {
+                    // Check if the trip wasn't cancelled while searching
+                    if (RideManager.getInstance().getState().status === 'searching') {
+                        const assignResult = RideManager.getInstance().assignDriver();
+                        logMessage(assignResult.message);
+                        updateUI();
+                    }
+                }, 3000);
+            }
+        });
+
+        startRideBtn.addEventListener('click', () => {
+             logMessage('Attempting to start the ride...');
+             const result = RideManager.getInstance().startTrip();
+             logMessage(result.message);
+             updateUI();
+        });
+
+        endRideBtn.addEventListener('click', () => {
+             logMessage('Attempting to end the ride...');
+             const result = RideManager.getInstance().endTrip();
+             logMessage(result.message);
+             updateUI();
+        });
+        
+        cancelRideBtn.addEventListener('click', () => {
+            logMessage('Attempting to cancel the ride...');
+            const result = RideManager.getInstance().cancelTrip();
+            logMessage(result.message);
+            updateUI();
+        });
+
+        // --- Initial App Load ---
+        window.addEventListener('load', () => {
+            logMessage('App loaded. Initializing state.');
+            updateUI();
+        });
+
+    </script>
+</body>
+</html>
+
+
+
